@@ -158,6 +158,17 @@ function authHeader() {
   return 'Basic ' + Buffer.from(CH_API_KEY + ':').toString('base64');
 }
 
+// Temporary debug endpoint - remove after testing
+app.get('/api/debug', (req, res) => {
+  const key = process.env.COMPANIES_HOUSE_API_KEY;
+  res.json({
+    key_set: !!key,
+    key_length: key ? key.length : 0,
+    key_preview: key ? key.slice(0, 8) + '...' : null,
+    node_env: process.env.NODE_ENV,
+  });
+});
+
 // Search by SIC code using advanced search
 app.get('/api/search', async (req, res) => {
   const { sic, q, page = 1 } = req.query;
