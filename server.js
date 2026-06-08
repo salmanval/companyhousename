@@ -159,13 +159,25 @@ function authHeader() {
 }
 
 // Temporary debug endpoint - remove after testing
-app.get('/api/debug', (req, res) => {
+app.get('/api/debug', async (req, res) => {
   const key = process.env.COMPANIES_HOUSE_API_KEY;
+  const b64 = Buffer.from(key + ':').toString('base64');
+  let chResult = null;
+  try {
+    const r = await fetch('https://api.company-information.service.gov.uk/search/companies?q=test&items_per_page=1', {
+      headers: { Authorization: 'Basic ' + b64 },
+    });
+    const text = await r.text();
+    chResult = { status: r.status, body: text.slice(0, 200) };
+  } catch (e) {
+    chResult = { error: e.message };
+  }
   res.json({
     key_set: !!key,
     key_length: key ? key.length : 0,
     key_preview: key ? key.slice(0, 8) + '...' : null,
     node_env: process.env.NODE_ENV,
+    ch_test: chResult,
   });
 });
 
