@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Companies House SIC Search</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f4f6f9;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #00703c;
+      color: #fff;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    header span { font-size: 0.85rem; opacity: 0.85; }
+
+    .container { max-width: 960px; margin: 32px auto; padding: 0 16px; }
+
+    .search-card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    .search-card h2 { font-size: 1.1rem; margin-bottom: 16px; color: #00703c; }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      padding: 8px 20px;
+      border: 2px solid #00703c;
+      border-radius: 4px;
+      background: #fff;
+      color: #00703c;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .tab.active {
+      background: #00703c;
+      color: #fff;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .input-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus { border-color: #00703c; }
+
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1.5px solid #00703c;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      max-height: 240px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+    }
+
+    .autocomplete-list.open { display: block; }
+
+    .autocomplete-item {
+      padding: 9px 14px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .autocomplete-item:hover, .autocomplete-item.focused {
+      background: #e8f5ee;
+    }
+
+    .autocomplete-item .code { font-weight: 700; color: #00703c; margin-right: 6px; }
+
+    button.search-btn {
+      padding: 10px 24px;
+      background: #00703c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    button.search-btn:hover { background: #005a2f; }
+    button.search-btn:disabled { background: #aaa; cursor: not-allowed; }
+
+    .hint { font-size: 0.8rem; color: #666; margin-top: 8px; }
+
+    #status {
+      font-size: 0.9rem;
+      color: #555;
+      margin-bottom: 12px;
+      min-height: 1.4em;
+    }
+
+    .results-card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    thead { background: #00703c; color: #fff; }
+    thead th { padding: 12px 16px; text-align: left; font-weight: 600; }
+
+    tbody tr { border-bottom: 1px solid #f0f0f0; transition: background 0.1s; }
+    tbody tr:hover { background: #f8fbf9; }
+    tbody td { padding: 11px 16px; vertical-align: top; }
+
+    .company-number { font-family: monospace; color: #555; font-size: 0.82rem; }
+    .company-name { font-weight: 600; }
+    .company-status { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .status-active { background: #d4edda; color: #155724; }
+    .status-dissolved { background: #f8d7da; color: #721c24; }
+    .status-other { background: #e2e3e5; color: #383d41; }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px;
+      border-top: 1px solid #eee;
+    }
+
+    .pagination button {
+      padding: 7px 18px;
+      background: #00703c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.88rem;
+    }
+
+    .pagination button:disabled { background: #ccc; cursor: not-allowed; }
+    .pagination .page-info { font-size: 0.88rem; color: #555; }
+
+    .empty { text-align: center; padding: 40px; color: #888; }
+
+    .error-box {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 6px;
+      padding: 14px 18px;
+      color: #856404;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .search-row { flex-direction: column; }
+      thead th:nth-child(3), thead th:nth-child(4),
+      tbody td:nth-child(3), tbody td:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+  <div>
+    <h1>Companies House SIC Search</h1>
+    <span>Search UK companies by SIC code or business activity</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="search-card">
+    <h2>Find Companies by Activity</h2>
+
+    <div class="tabs">
+      <button class="tab active" id="tab-sic" onclick="setTab('sic')">SIC Code</button>
+      <button class="tab" id="tab-keyword" onclick="setTab('keyword')">Keyword / Category</button>
+    </div>
+
+    <div class="search-row">
+      <div class="input-wrap">
+        <input type="text" id="searchInput" placeholder="e.g. 62012 or Software Development" autocomplete="off" />
+        <div class="autocomplete-list" id="autocompleteList"></div>
+      </div>
+      <button class="search-btn" id="searchBtn" onclick="doSearch()">Search</button>
+    </div>
+    <p class="hint" id="hint">Enter a SIC code (e.g. 62012) or start typing to see suggestions.</p>
+  </div>
+
+  <div id="errorBox" class="error-box" style="display:none"></div>
+  <p id="status"></p>
+
+  <div id="resultsCard" class="results-card" style="display:none">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Company Name</th>
+          <th>Company Number</th>
+          <th>Status</th>
+          <th>Incorporated</th>
+          <th>Address</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+    <div class="pagination" id="pagination" style="display:none">
+      <button id="prevBtn" onclick="changePage(-1)" disabled>&#8592; Previous</button>
+      <span class="page-info" id="pageInfo"></span>
+      <button id="nextBtn" onclick="changePage(1)">Next &#8594;</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentTab = 'sic';
+  let currentPage = 1;
+  let totalResults = 0;
+  let lastSic = '';
+  let lastKeyword = '';
+  let acDebounce = null;
+  let acFocusIndex = -1;
+  let acItems = [];
+
+  const input = document.getElementById('searchInput');
+  const acList = document.getElementById('autocompleteList');
+
+  function setTab(tab) {
+    currentTab = tab;
+    document.getElementById('tab-sic').classList.toggle('active', tab === 'sic');
+    document.getElementById('tab-keyword').classList.toggle('active', tab === 'keyword');
+    input.value = '';
+    closeAC();
+    document.getElementById('hint').textContent =
+      tab === 'sic'
+        ? 'Enter a SIC code (e.g. 62012) or start typing to see suggestions.'
+        : 'Enter a business category or activity keyword (e.g. "restaurant", "software").';
+    input.placeholder = tab === 'sic' ? 'e.g. 62012 or Software Development' : 'e.g. restaurant, construction, legal';
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(acDebounce);
+    acDebounce = setTimeout(() => fetchAC(input.value.trim()), 220);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveFocus(-1); }
+    else if (e.key === 'Enter') {
+      if (acFocusIndex >= 0 && acItems[acFocusIndex]) {
+        selectAC(acItems[acFocusIndex]);
+      } else {
+        doSearch();
+      }
+    } else if (e.key === 'Escape') { closeAC(); }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.input-wrap')) closeAC();
+  });
+
+  async function fetchAC(q) {
+    if (!q || q.length < 2) { closeAC(); return; }
+    try {
+      const res = await fetch(`/api/sic-codes?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      acItems = Object.entries(data);
+      renderAC();
+    } catch { closeAC(); }
+  }
+
+  function renderAC() {
+    acList.innerHTML = '';
+    acFocusIndex = -1;
+    if (!acItems.length) { closeAC(); return; }
+    acItems.forEach(([code, desc], i) => {
+      const div = document.createElement('div');
+      div.className = 'autocomplete-item';
+      div.innerHTML = `<span class="code">${code}</span>${desc}`;
+      div.addEventListener('mousedown', () => selectAC([code, desc]));
+      acList.appendChild(div);
+    });
+    acList.classList.add('open');
+  }
+
+  function selectAC([code, desc]) {
+    if (currentTab === 'sic') {
+      input.value = code;
+    } else {
+      input.value = desc;
+    }
+    closeAC();
+    doSearch();
+  }
+
+  function moveFocus(dir) {
+    const items = acList.querySelectorAll('.autocomplete-item');
+    if (!items.length) return;
+    items[acFocusIndex]?.classList.remove('focused');
+    acFocusIndex = Math.max(0, Math.min(items.length - 1, acFocusIndex + dir));
+    items[acFocusIndex].classList.add('focused');
+    items[acFocusIndex].scrollIntoView({ block: 'nearest' });
+  }
+
+  function closeAC() {
+    acList.classList.remove('open');
+    acList.innerHTML = '';
+    acFocusIndex = -1;
+    acItems = [];
+  }
+
+  async function doSearch(page = 1) {
+    const val = input.value.trim();
+    if (!val) return;
+    currentPage = page;
+
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    document.getElementById('status').textContent = 'Searching…';
+    document.getElementById('errorBox').style.display = 'none';
+    document.getElementById('resultsCard').style.display = 'none';
+    closeAC();
+
+    // Detect if it looks like a SIC code (digits, possibly with leading zeros)
+    const isSicCode = /^\d{4,5}$/.test(val);
+    let url;
+
+    if (currentTab === 'sic' || isSicCode) {
+      lastSic = val;
+      lastKeyword = '';
+      url = `/api/search?sic=${encodeURIComponent(val)}&page=${page}`;
+    } else {
+      lastKeyword = val;
+      lastSic = '';
+      url = `/api/search?q=${encodeURIComponent(val)}&page=${page}`;
+    }
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'API error', data.detail);
+        return;
+      }
+
+      renderResults(data, page);
+    } catch (err) {
+      showError('Network error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderResults(data, page) {
+    // Advanced search returns: { hits: [...], kind, total_results }
+    // Company search returns: { items: [...], total_results, ... }
+    const items = data.hits || data.items || [];
+    totalResults = data.total_results || 0;
+
+    const tbody = document.getElementById('resultsBody');
+    tbody.innerHTML = '';
+
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No companies found.</td></tr>';
+      document.getElementById('resultsCard').style.display = 'block';
+      document.getElementById('status').textContent = 'No results found.';
+      document.getElementById('pagination').style.display = 'none';
+      return;
+    }
+
+    const offset = (page - 1) * 20;
+    items.forEach((item, i) => {
+      const name = item.company_name || item.title || '';
+      const number = item.company_number || '';
+      const status = item.company_status || '';
+      const incorporated = item.date_of_creation || item.date_of_cessation || '';
+      const addr = formatAddress(item.registered_office_address || item.address || {});
+
+      const statusClass = status === 'active' ? 'status-active' : status === 'dissolved' ? 'status-dissolved' : 'status-other';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${offset + i + 1}</td>
+        <td class="company-name">${escHtml(name)}</td>
+        <td class="company-number">${escHtml(number)}</td>
+        <td><span class="company-status ${statusClass}">${escHtml(status || 'unknown')}</span></td>
+        <td>${escHtml(incorporated)}</td>
+        <td style="max-width:200px;word-break:break-word;font-size:0.82rem">${escHtml(addr)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('resultsCard').style.display = 'block';
+
+    const totalPages = Math.ceil(Math.min(totalResults, 2000) / 20);
+    document.getElementById('status').textContent =
+      `Showing ${offset + 1}–${offset + items.length} of ${totalResults.toLocaleString()} companies`;
+
+    const pagination = document.getElementById('pagination');
+    if (totalPages > 1) {
+      pagination.style.display = 'flex';
+      document.getElementById('prevBtn').disabled = page <= 1;
+      document.getElementById('nextBtn').disabled = page >= totalPages;
+      document.getElementById('pageInfo').textContent = `Page ${page} of ${totalPages}`;
+    } else {
+      pagination.style.display = 'none';
+    }
+  }
+
+  function changePage(dir) {
+    const newPage = currentPage + dir;
+    if (newPage < 1) return;
+    doSearch(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function formatAddress(addr) {
+    return [addr.address_line_1, addr.address_line_2, addr.locality, addr.postal_code, addr.country]
+      .filter(Boolean).join(', ');
+  }
+
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function showError(msg, detail) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg + (detail ? ' — ' + detail : '');
+    box.style.display = 'block';
+    document.getElementById('status').textContent = '';
+  }
+</script>
+</body>
+</html>
